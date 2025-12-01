@@ -1,6 +1,3 @@
-# Ignore config file (we'll use environment variables)
-config.php
-
 # Ignore system files
 .DS_Store
 Thumbs.db
