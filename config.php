@@ -15,10 +15,12 @@ define('GOOGLE_CLIENT_SECRET', getenv('GOOGLE_CLIENT_SECRET') ?: 'YOUR_GOOGLE_CL
 define('APP_NAME', 'Expense Maker');
 define('APP_URL', getenv('RAILWAY_PUBLIC_DOMAIN') ? 'https://' . getenv('RAILWAY_PUBLIC_DOMAIN') : 'http://localhost:8000');
 
-// Session configuration
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_secure', getenv('RAILWAY_ENVIRONMENT') ? 1 : 0); // HTTPS on Railway
+// Session configuration - only set if session not started
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    ini_set('session.cookie_secure', getenv('RAILWAY_ENVIRONMENT') ? 1 : 0); // HTTPS on Railway
+}
 
 // Error reporting
 if (getenv('RAILWAY_ENVIRONMENT')) {
@@ -44,7 +46,18 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
 } catch (PDOException $e) {
     error_log("Database connection failed: " . $e->getMessage());
-    die("Connection failed. Please check your database configuration.");
+    
+    // Show debug info in development
+    if (!getenv('RAILWAY_ENVIRONMENT')) {
+        die("Connection failed: " . $e->getMessage() . "<br>Host: " . DB_HOST . "<br>Database: " . DB_NAME);
+    }
+    
+    // In production, check if Railway MySQL is configured
+    if (!getenv('MYSQLHOST')) {
+        die("Database not configured. Please add MySQL service in Railway.");
+    }
+    
+    die("Database connection failed. Please check Railway MySQL service is running.");
 }
 
 // Generate CSRF token if not exists
