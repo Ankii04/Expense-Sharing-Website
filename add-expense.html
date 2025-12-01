@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Expense | Expense Maker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.php"><i class="fas fa-wallet"></i> Expense Maker</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.php"><i class="fas fa-chart-line"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="group.php"><i class="fas fa-users"></i> Groups</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="profile.php"><i class="fas fa-user"></i> Profile</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-5 pt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <h2 class="card-title text-center mb-4"><i class="fas fa-plus-circle text-primary"></i> Add New Expense</h2>
+                        
+                        <!-- Alert for messages -->
+                        <div class="alert alert-danger d-none" id="errorAlert" role="alert"></div>
+                        <div class="alert alert-success d-none" id="successAlert" role="alert"></div>
+
+                        <form id="addExpenseForm" class="needs-validation" novalidate>
+                            <input type="hidden" name="csrf_token" id="csrfToken">
+                            
+                            <!-- Group Selection -->
+                            <div class="mb-3">
+                                <label class="form-label">Group <span class="text-danger">*</span></label>
+                                <select class="form-select" name="group_id" required>
+                                    <option value="">Select a group</option>
+                                    <!-- Groups will be loaded dynamically -->
+                                </select>
+                                <div class="invalid-feedback">Please select a group</div>
+                            </div>
+
+                            <!-- Amount -->
+                            <div class="mb-3">
+                                <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="amount" step="0.01" min="0.01" required>
+                                </div>
+                                <div class="invalid-feedback">Please enter a valid amount</div>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="mb-3">
+                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="description" required>
+                                <div class="invalid-feedback">Please provide a description</div>
+                            </div>
+
+                            <!-- Date -->
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" name="date">
+                            </div>
+
+                            <!-- Split Type -->
+                            <div class="mb-3">
+                                <label class="form-label">Split Type</label>
+                                <select class="form-select" name="split_type" id="splitType">
+                                    <option value="equal">Split Equally</option>
+                                    <option value="custom">Custom Split</option>
+                                </select>
+                            </div>
+
+                            <!-- Custom Split (initially hidden) -->
+                            <div id="customSplitContainer" class="d-none">
+                                <!-- Will be populated dynamically with group members -->
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary" id="addExpenseBtn">
+                                    <span class="normal-text">
+                                        <i class="fas fa-plus me-1"></i> Add Expense
+                                    </span>
+                                    <span class="loading-text d-none">
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        Adding...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('addExpenseForm');
+            const errorAlert = document.getElementById('errorAlert');
+            const successAlert = document.getElementById('successAlert');
+            const submitBtn = document.getElementById('submitBtn');
+            const spinner = submitBtn.querySelector('.spinner-border');
+            const splitType = document.getElementById('splitType');
+            const customSplitContainer = document.getElementById('customSplitContainer');
+
+            // Load groups
+            fetch('get-groups.php')
+                .then(response => response.json())
+                .then(data => {
+                    const select = form.querySelector('select[name="group_id"]');
+                    data.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group.id;
+                        option.textContent = group.name;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => showError('Failed to load groups'));
+
+            // Handle split type change
+            splitType.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    const groupId = form.querySelector('select[name="group_id"]').value;
+                    if (groupId) {
+                        loadGroupMembers(groupId);
+                    } else {
+                        showError('Please select a group first');
+                        this.value = 'equal';
+                    }
+                } else {
+                    customSplitContainer.classList.add('d-none');
+                }
+            });
+
+            // Handle form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (!form.checkValidity()) {
+                    e.stopPropagation();
+                    form.classList.add('was-validated');
+                    return;
+                }
+
+                // Show loading state
+                submitBtn.disabled = true;
+                spinner.classList.remove('d-none');
+                hideAlerts();
+
+                // Collect form data
+                const formData = new FormData(form);
+                
+                // Add custom split amounts if applicable
+                if (splitType.value === 'custom') {
+                    const splitAmounts = {};
+                    document.querySelectorAll('.split-amount').forEach(input => {
+                        splitAmounts[input.dataset.userId] = parseFloat(input.value) || 0;
+                    });
+                    formData.append('split_amounts', JSON.stringify(splitAmounts));
+                }
+
+                // Submit expense
+                fetch('add-expense.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showSuccess(data.message);
+                        form.reset();
+                        form.classList.remove('was-validated');
+                        setTimeout(() => window.location.href = 'dashboard.php', 1500);
+                    } else {
+                        showError(data.message);
+                    }
+                })
+                .catch(error => showError('An error occurred while adding the expense'))
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    spinner.classList.add('d-none');
+                });
+            });
+
+            function loadGroupMembers(groupId) {
+                fetch(`get-group-members.php?group_id=${groupId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        customSplitContainer.innerHTML = '';
+                        data.forEach(member => {
+                            const div = document.createElement('div');
+                            div.className = 'mb-3';
+                            div.innerHTML = `
+                                <label class="form-label">${member.name}'s Share ($)</label>
+                                <input type="number" class="form-control split-amount" 
+                                    data-user-id="${member.id}" step="0.01" min="0">
+                            `;
+                            customSplitContainer.appendChild(div);
+                        });
+                        customSplitContainer.classList.remove('d-none');
+                    })
+                    .catch(error => showError('Failed to load group members'));
+            }
+
+            function showError(message) {
+                errorAlert.textContent = message;
+                errorAlert.classList.remove('d-none');
+                successAlert.classList.add('d-none');
+            }
+
+            function showSuccess(message) {
+                successAlert.textContent = message;
+                successAlert.classList.remove('d-none');
+                errorAlert.classList.add('d-none');
+            }
+
+            function hideAlerts() {
+                errorAlert.classList.add('d-none');
+                successAlert.classList.add('d-none');
+            }
+        });
+    </script>
+</body>
+</html>

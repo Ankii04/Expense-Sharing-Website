@@ -1,0 +1,20 @@
+# Ignore config file (we'll use environment variables)
+config.php
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore logs
+*.log
+error_log
+
+# Ignore uploads (if any)
+uploads/*
+!uploads/.gitkeep
