@@ -57,10 +57,7 @@ try {
         die("Database not configured. Please add MySQL service in Railway.");
     }
     
-    // TEMPORARY DEBUGGING: Show exact error
-    die("Database connection failed: " . $e->getMessage() . "<br>Host: " . DB_HOST . "<br>Port: " . DB_PORT . "<br>User: " . DB_USER . "<br>DB: " . DB_NAME);
-    
-    // die("Database connection failed. Please check Railway MySQL service is running.");
+    die("Database connection failed. Please check Railway MySQL service is running.");
 }
 
 // Generate CSRF token if not exists
