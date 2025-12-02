@@ -4,7 +4,7 @@
 
 // Database configuration from environment variables
 define('DB_HOST', getenv('MYSQLHOST') ?: 'localhost');
-define('DB_NAME', getenv('MYSQLDATABASE') ?: 'expense_maker');
+define('DB_NAME', getenv('MYSQLDATABASE') ?: 'railway');
 define('DB_USER', getenv('MYSQLUSER') ?: 'root');
 define('DB_PASS', getenv('MYSQLPASSWORD') ?: '');
 define('DB_PORT', getenv('MYSQLPORT') ?: '3306');
