@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_group'])) {
     $group_name = trim($_POST['group_name']);
     if (!empty($group_name)) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO groups (name, created_by) VALUES (?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO `groups` (name, created_by) VALUES (?, ?)");
             $stmt->execute([$group_name, $_SESSION['user_id']]);
             
             $group_id = $pdo->lastInsertId();
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_expense'])) {
 // Get user's groups
 $stmt = $pdo->prepare("
     SELECT g.*, u.name as creator_name 
-    FROM groups g 
+    FROM `groups` g 
     JOIN users u ON g.created_by = u.id 
     WHERE g.id IN (
         SELECT group_id 
@@ -129,7 +129,7 @@ $category_expenses = $stmt->fetchAll();
 $stmt = $pdo->prepare("
     SELECT e.*, g.name as group_name, u.name as paid_by_name 
     FROM expenses e 
-    JOIN groups g ON e.group_id = g.id 
+    JOIN `groups` g ON e.group_id = g.id 
     JOIN users u ON e.paid_by = u.id 
     WHERE e.group_id IN (
         SELECT group_id 

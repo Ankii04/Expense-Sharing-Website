@@ -27,7 +27,7 @@ if (!$stmt->fetch()) {
 // Get group details
 $stmt = $pdo->prepare("
     SELECT g.*, u.username as creator_name 
-    FROM groups g 
+    FROM `groups` g 
     JOIN users u ON g.created_by = u.id 
     WHERE g.id = ?
 ");

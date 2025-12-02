@@ -34,7 +34,7 @@ if (!empty($token) || !empty($code)) {
     $debug_info['param'] = $param;
     $debug_info['where_clause'] = $where_clause;
     $debug_info['method'] = $token ? 'token' : 'invite_code';
-    $debug_info['sql'] = "SELECT gi.*, g.name as group_name, COALESCE(u.name, u.username) as inviter_name, g.id as group_id FROM group_invites gi JOIN groups g ON gi.group_id = g.id LEFT JOIN users u ON gi.invited_by = u.id WHERE $where_clause AND gi.status = 'pending' AND gi.expires_at > CURRENT_TIMESTAMP";
+    $debug_info['sql'] = "SELECT gi.*, g.name as group_name, COALESCE(u.name, u.username) as inviter_name, g.id as group_id FROM group_invites gi JOIN `groups` g ON gi.group_id = g.id LEFT JOIN users u ON gi.invited_by = u.id WHERE $where_clause AND gi.status = 'pending' AND gi.expires_at > CURRENT_TIMESTAMP";
     
     error_log('Attempting to join with token: ' . $token);
     
@@ -45,7 +45,7 @@ if (!empty($token) || !empty($code)) {
                    COALESCE(u.name, u.username) as inviter_name,
                    g.id as group_id
             FROM group_invites gi
-            JOIN groups g ON gi.group_id = g.id
+            JOIN `groups` g ON gi.group_id = g.id
             LEFT JOIN users u ON gi.invited_by = u.id
             WHERE $where_clause
             AND gi.status = 'pending'
@@ -72,7 +72,7 @@ if (!empty($token) || !empty($code)) {
                        gi.status,
                        gi.expires_at
                 FROM group_invites gi
-                JOIN groups g ON gi.group_id = g.id
+                JOIN `groups` g ON gi.group_id = g.id
                 LEFT JOIN users u ON gi.invited_by = u.id
                 WHERE $where_clause
             ");

@@ -13,7 +13,7 @@ $user_id = $_SESSION['user_id'];
 // Get user's groups
 $stmt = $pdo->prepare("
     SELECT g.* 
-    FROM groups g
+    FROM `groups` g
     JOIN group_members gm ON g.id = gm.group_id
     WHERE gm.user_id = ?
 ");
@@ -63,7 +63,7 @@ $stmt = $pdo->prepare("
         SUM(CASE WHEN e.paid_by = ? THEN e.amount ELSE 0 END) as total_spent,
         COUNT(*) as expense_count
     FROM expenses e
-    JOIN groups g ON e.group_id = g.id
+    JOIN `groups` g ON e.group_id = g.id
     JOIN group_members gm ON e.group_id = gm.group_id
     LEFT JOIN expense_splits es ON e.id = es.expense_id
     WHERE gm.user_id = ?

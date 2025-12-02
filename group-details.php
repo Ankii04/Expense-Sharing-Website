@@ -19,7 +19,7 @@ $group_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 // Get group details
 $stmt = $pdo->prepare("
     SELECT g.*, u.name as creator_name 
-    FROM groups g 
+    FROM `groups` g 
     JOIN users u ON g.created_by = u.id 
     WHERE g.id = ? AND g.id IN (
         SELECT group_id 

@@ -22,7 +22,7 @@ try {
     // Check if user is creator of the group
     $stmt = $pdo->prepare("
         SELECT created_by 
-        FROM groups 
+        FROM `groups` 
         WHERE id = ? AND created_by = ?
     ");
     $stmt->execute([$group_id, $_SESSION['user_id']]);
@@ -69,7 +69,7 @@ try {
     $stmt->execute([$group_id]);
 
     // Finally, delete the group
-    $stmt = $pdo->prepare("DELETE FROM groups WHERE id = ?");
+    $stmt = $pdo->prepare("DELETE FROM `groups` WHERE id = ?");
     $stmt->execute([$group_id]);
 
     // Commit transaction
