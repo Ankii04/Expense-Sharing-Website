@@ -253,36 +253,38 @@ $balance = $total_owes - $total_owed;
 
     <!-- Main Content -->
     <div class="main-content">
-        <!-- Top Navigation -->
-        <nav class="top-nav">
+        <!-- Top Header Bar -->
+        <div class="top-nav bg-white border-bottom">
             <div class="container-fluid">
-                <div class="d-flex justify-content-between align-items-center">
-                    <button class="sidebar-toggle">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Search...">
+                <div class="d-flex justify-content-between align-items-center py-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle btn btn-link text-dark p-0">
+                            <i class="fas fa-bars fa-lg"></i>
+                        </button>
+                        <h4 class="mb-0 fw-bold text-primary">
+                            <i class="fas fa-receipt me-2"></i>Expense Sharing
+                        </h4>
                     </div>
-                    <div class="top-nav-right">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="btn btn-sm btn-outline-primary" id="themeToggle">
+                            <i class="fas fa-moon"></i>
+                        </button>
                         <div class="dropdown">
                             <button class="btn dropdown-toggle" type="button" id="notificationsDropdown" data-bs-toggle="dropdown">
                                 <i class="fas fa-bell"></i>
                                 <span class="badge bg-danger">3</span>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdown">
                                 <li><h6 class="dropdown-header">Notifications</h6></li>
-                                <li><a class="dropdown-item" href="#">New expense added to Trip to Paris</a></li>
+                                <li><a class="dropdown-item" href="#">New expense added</a></li>
                                 <li><a class="dropdown-item" href="#">John settled up with you</a></li>
                                 <li><a class="dropdown-item" href="#">Sarah added you to a new group</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-center" href="#">View All</a></li>
                             </ul>
                         </div>
                     </div>
                 </div>
             </div>
-        </nav>
+        </div>
 
         <!-- Dashboard Content -->
         <div class="container-fluid py-4">
