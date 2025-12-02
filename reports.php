@@ -86,7 +86,7 @@ $group_expenses = $stmt->fetchAll();
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <?php include 'navbar.php'; ?>
+    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
     
     <div class="container mt-4">
         <div class="row">

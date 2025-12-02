@@ -170,7 +170,7 @@ if (!empty($token) || !empty($code)) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <?php include 'navbar.php'; ?>
+    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
     
     <div class="container mt-4">
         <div class="row justify-content-center">

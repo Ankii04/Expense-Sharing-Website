@@ -88,7 +88,7 @@ $user = $stmt->fetch();
     <link href="assets/css/styles.css" rel="stylesheet">
 </head>
 <body>
-    <?php include 'navbar.php'; ?>
+    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
 
     <div class="container mt-4">
         <div class="row">
