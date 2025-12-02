@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
         } else {
-            $error = "User with this email not found";
+            $error = "User with this email not found. Please ask them to register first.";
         }
     }
 }
