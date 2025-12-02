@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount = filter_input(INPUT_POST, 'amount', FILTER_VALIDATE_FLOAT);
     $description = trim($_POST['description'] ?? '');
     $category = trim($_POST['expense_type'] ?? 'other');
+    $date = $_POST['date'] ?? date('Y-m-d');
     
     // Validate expense type
     $valid_types = ['food', 'clothes', 'travel', 'other'];
@@ -62,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
         
         // Create expense
-        $stmt = $pdo->prepare("INSERT INTO expenses (group_id, paid_by, amount, description, category, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-        $stmt->execute([$group_id, $_SESSION['user_id'], $amount, $description, $category]);
+        $stmt = $pdo->prepare("INSERT INTO expenses (group_id, paid_by, amount, description, category, date, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([$group_id, $_SESSION['user_id'], $amount, $description, $category, $date]);
         $expense_id = $pdo->lastInsertId();
         
         // Calculate split amount

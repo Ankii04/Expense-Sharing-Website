@@ -440,7 +440,7 @@ $balance = $total_owes - $total_owed;
                                                 <div class="ms-3">
                                                     <h5 class="card-title mb-1"><?php echo htmlspecialchars($group['name']); ?></h5>
                                                     <p class="card-text text-muted mb-0">
-                                                        Created by <?php echo htmlspecialchars($group['creator_name']); ?>
+                                                        Created by <?php echo htmlspecialchars($group['creator_name'] ?? ''); ?>
                                                     </p>
                                                 </div>
                                             </div>
