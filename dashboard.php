@@ -491,9 +491,9 @@ $balance = $total_owes - $total_owed;
                                             <tr>
                                                 <td><?php echo date('M d, Y', strtotime($expense['date'])); ?></td>
                                                 <td><?php echo htmlspecialchars($expense['group_name']); ?></td>
-                                                <td><?php echo htmlspecialchars($expense['description']); ?></td>
+                                                <td><?php echo htmlspecialchars($expense['description'] ?? ''); ?></td>
                                                 <td>₹<?php echo number_format($expense['amount'], 2); ?></td>
-                                                <td><?php echo htmlspecialchars($expense['paid_by_name']); ?></td>
+                                                <td><?php echo htmlspecialchars($expense['paid_by_name'] ?? ''); ?></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>

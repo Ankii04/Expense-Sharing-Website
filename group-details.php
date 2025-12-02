@@ -844,12 +844,12 @@ foreach ($expenses as &$expense) {
                     </div>
 
                     <!-- Settlements Section -->
-                    <?php include 'settle-button.php'; ?>
+                    <?php // include 'settle-button.php'; // File doesn't exist ?>
 
                     <div class="row mt-4">
                         <div class="col-md-6">
                             <h6>Group Information</h6>
-                            <p><strong>Created by:</strong> <?php echo htmlspecialchars($group['creator_name']); ?></p>
+                            <p><strong>Created by:</strong> <?php echo htmlspecialchars($group['creator_name'] ?? ''); ?></p>
                             <p><strong>Created on:</strong> <?php echo date('F j, Y', strtotime($group['created_at'])); ?></p>
                         </div>
                         <div class="col-md-6">
@@ -860,12 +860,12 @@ foreach ($expenses as &$expense) {
                                         <div class="d-flex align-items-center">
                                             <div class="member-avatar">
                                             <?php if ($member['avatar']): ?>
-                                                    <img src="<?php echo htmlspecialchars($member['avatar']); ?>" alt="Profile">
+                                                    <img src="<?php echo htmlspecialchars($member['avatar'] ?? ''); ?>" alt="Profile">
                                             <?php else: ?>
-                                                    <span><?php echo strtoupper(substr($member['name'], 0, 1)); ?></span>
+                                                    <span><?php echo strtoupper(substr($member['name'] ?? 'U', 0, 1)); ?></span>
                                             <?php endif; ?>
                                             </div>
-                                            <span class="member-name"><?php echo htmlspecialchars($member['name']); ?></span>
+                                            <span class="member-name"><?php echo htmlspecialchars($member['name'] ?? ''); ?></span>
                                         </div>
                                         <?php if ($member['id'] == $group['created_by']): ?>
                                             <span class="badge bg-primary">Admin</span>
