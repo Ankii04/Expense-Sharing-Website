@@ -950,14 +950,14 @@ foreach ($expenses as &$expense) {
                                 <?php foreach ($expenses as $expense): ?>
                                     <tr>
                                         <td><?php echo date('M j, Y', strtotime($expense['created_at'])); ?></td>
-                                        <td><?php echo htmlspecialchars($expense['description']); ?></td>
+                                        <td><?php echo htmlspecialchars($expense['description'] ?? ''); ?></td>
                                         <td>₹<?php echo number_format($expense['amount'], 2); ?></td>
-                                        <td><?php echo htmlspecialchars($expense['paid_by_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($expense['paid_by_name'] ?? ''); ?></td>
                                         <td>
                                             <?php
                                             $split_members = [];
                                             foreach ($expense['splits'] as $split) {
-                                                $split_members[] = htmlspecialchars($split['member_name']);
+                                                $split_members[] = htmlspecialchars($split['member_name'] ?? '');
                                             }
                                             echo implode(', ', $split_members);
                                             ?>
