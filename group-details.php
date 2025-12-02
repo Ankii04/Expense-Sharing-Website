@@ -914,7 +914,7 @@ foreach ($expenses as &$expense) {
                                                    id="member<?php echo $member['id']; ?>"
                                                    <?php echo ($member['id'] == $_SESSION['user_id']) ? 'checked disabled' : ''; ?>>
                                             <label class="form-check-label" for="member<?php echo $member['id']; ?>">
-                                                <?php echo htmlspecialchars($member['name']); ?>
+                                                <?php echo htmlspecialchars($member['name'] ?? ''); ?>
                                             </label>
                                         </div>
                                     <?php endforeach; ?>
