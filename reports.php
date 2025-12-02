@@ -93,10 +93,15 @@ $group_expenses = $stmt->fetchAll();
             <div class="col-md-12">
                 <div class="card shadow mb-4">
                     <div class="card-body">
-                        <h2 class="card-title mb-4">
-                            <i class="fas fa-chart-bar me-2"></i>
-                            Expense Reports
-                        </h2>
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2 class="card-title mb-0">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                Expense Reports
+                            </h2>
+                            <a href="dashboard.php" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
 
                         <!-- Monthly Trend -->
                         <div class="row mb-4">

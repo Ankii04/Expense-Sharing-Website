@@ -90,7 +90,6 @@ $groups = $stmt->fetchAll();
 $stmt = $pdo->prepare("
     SELECT 
         DATE_FORMAT(e.date, '%Y-%m') as month,
-        COALESCE(e.category, 'Other') as category,
         SUM(CASE WHEN es.user_id = ? THEN es.amount ELSE 0 END) as amount_spent,
         SUM(CASE WHEN e.paid_by = ? THEN e.amount ELSE 0 END) as amount_paid,
         COUNT(DISTINCT e.id) as transaction_count
@@ -101,7 +100,7 @@ $stmt = $pdo->prepare("
         FROM group_members 
         WHERE user_id = ?
     )
-    GROUP BY DATE_FORMAT(e.date, '%Y-%m'), COALESCE(e.category, 'Other')
+    GROUP BY DATE_FORMAT(e.date, '%Y-%m')
     ORDER BY month DESC
     LIMIT 12
 ");
@@ -269,18 +268,6 @@ $balance = $total_owes - $total_owed;
                         <button class="btn btn-sm btn-outline-primary" id="themeToggle">
                             <i class="fas fa-moon"></i>
                         </button>
-                        <div class="dropdown">
-                            <button class="btn dropdown-toggle" type="button" id="notificationsDropdown" data-bs-toggle="dropdown">
-                                <i class="fas fa-bell"></i>
-                                <span class="badge bg-danger">3</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdown">
-                                <li><h6 class="dropdown-header">Notifications</h6></li>
-                                <li><a class="dropdown-item" href="#">New expense added</a></li>
-                                <li><a class="dropdown-item" href="#">John settled up with you</a></li>
-                                <li><a class="dropdown-item" href="#">Sarah added you to a new group</a></li>
-                            </ul>
-                        </div>
                     </div>
                 </div>
             </div>
