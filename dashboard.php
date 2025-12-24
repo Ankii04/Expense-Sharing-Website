@@ -35,20 +35,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_group'])) {
 }
 
 // Fetch unread notifications
-$notifications = getUnreadNotifications($pdo, $_SESSION['user_id']);
+$notifications = [];
+$activities = [];
+$db_error = false;
 
-// Fetch recent activity from user's groups
-$stmt = $pdo->prepare("
-    SELECT al.*, u.name as user_name, g.name as group_name, u.avatar_url, u.username
-    FROM activity_log al
-    JOIN users u ON al.user_id = u.id
-    JOIN `groups` g ON al.group_id = g.id
-    WHERE al.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?)
-    ORDER BY al.created_at DESC
-    LIMIT 10
-");
-$stmt->execute([$_SESSION['user_id']]);
-$activities = $stmt->fetchAll();
+try {
+    $notifications = getUnreadNotifications($pdo, $_SESSION['user_id']);
+
+    // Fetch recent activity from user's groups
+    $stmt = $pdo->prepare("
+        SELECT al.*, u.name as user_name, g.name as group_name, u.avatar_url, u.username
+        FROM activity_log al
+        JOIN users u ON al.user_id = u.id
+        JOIN `groups` g ON al.group_id = g.id
+        WHERE al.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?)
+        ORDER BY al.created_at DESC
+        LIMIT 10
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $activities = $stmt->fetchAll();
+} catch (PDOException $e) {
+    if ($e->getCode() == '42S02') { // Table not found
+        $db_error = "Migration Required: New features (Notifications & Activity Log) need database updates. <a href='update_db.php' class='alert-link'>Run Update Now</a>";
+    } else {
+        $error = "Database error: " . $e->getMessage();
+    }
+}
 
 // Get user's groups
 $stmt = $pdo->prepare("
@@ -209,6 +221,14 @@ $balance = $total_owes - $total_owed;
             <?php if (isset($error)): ?>
                 <div class="alert alert-danger alert-dismissible fade show">
                     <?php echo $error; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($db_error): ?>
+                <div class="alert alert-warning alert-dismissible fade show">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <?php echo $db_error; ?>
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>

@@ -26,7 +26,18 @@ try {
         INDEX idx_user_read (user_id, is_read)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    // 3. Ensure avatar_url exists In users (already does, but just in case)
+    // 3. Expense Attachments Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS expense_attachments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        expense_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(255) NOT NULL,
+        uploaded_by INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_expense (expense_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // 4. Ensure avatar_url exists In users
     $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'avatar_url'");
     if (!$stmt->fetch()) {
         $pdo->exec("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255) NULL AFTER password");
