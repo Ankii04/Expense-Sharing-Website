@@ -73,17 +73,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Invite Members to <?php echo htmlspecialchars($group['name']); ?></h5>
-                        <a href="group-details.php?id=<?php echo $group_id; ?>" class="btn btn-sm btn-light">
-                            <i class="fas fa-arrow-left"></i> Back
-                        </a>
+<body class="dashboard-body">
+    <!-- Sidebar -->
+    <?php include 'sidebar.php'; ?>
+    
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle btn-icon">
+                            <i class="fas fa-bars fa-lg"></i>
+                        </button>
+                        <h4 class="mb-0 fw-bold text-primary d-none d-sm-block">
+                             Invite Members
+                        </h4>
                     </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="content-container">
+            <a href="group-details.php?id=<?php echo $group_id; ?>" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Group
+            </a>
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Invite to <?php echo htmlspecialchars($group['name']); ?></h5>
+                        </div>
                     <div class="card-body">
                         <?php if ($error): ?>
                             <div class="alert alert-danger"><?php echo $error; ?></div>
@@ -111,6 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
+    </div><!-- .content-container -->
+    </div><!-- .main-content -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

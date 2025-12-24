@@ -755,45 +755,7 @@ foreach ($expenses as &$expense) {
 </head>
 <body class="dashboard-body">
     <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <a href="dashboard.php" class="sidebar-brand">
-                <i class="fas fa-wallet"></i> Expense Maker
-            </a>
-        </div>
-        <ul class="sidebar-nav">
-            <li class="sidebar-item">
-                <a href="dashboard.php" class="sidebar-link">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                </a>
-            </li>
-            <li class="sidebar-item active">
-                <a href="group-details.php?id=<?php echo $group_id; ?>" class="sidebar-link">
-                    <i class="fas fa-users"></i> Group Details
-                </a>
-            </li>
-        </ul>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <div class="user-avatar">
-                    <?php if (isset($_SESSION['avatar']) && $_SESSION['avatar']): ?>
-                        <img src="<?php echo htmlspecialchars($_SESSION['avatar']); ?>" alt="Profile">
-                    <?php else: ?>
-                        <span><?php echo strtoupper(substr($_SESSION['name'] ?? $_SESSION['username'] ?? 'U', 0, 1)); ?></span>
-                    <?php endif; ?>
-                </div>
-                <div class="user-details">
-                    <div class="user-name">
-                        <?php echo htmlspecialchars($_SESSION['name'] ?? $_SESSION['username'] ?? 'User'); ?>
-                    </div>
-                    <a href="logout.php" class="logout-link">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Logout</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php include 'sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -801,14 +763,16 @@ foreach ($expenses as &$expense) {
         <nav class="top-nav">
             <div class="container-fluid">
                 <div class="d-flex justify-content-between align-items-center">
-                    <button class="sidebar-toggle d-md-none">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="d-flex align-items-center">
-                        <h4 class="mb-0">Group Details</h4>
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle btn-icon">
+                            <i class="fas fa-bars fa-lg"></i>
+                        </button>
+                        <h4 class="mb-0 fw-bold text-primary d-none d-sm-block">
+                             Group Details
+                        </h4>
                     </div>
                     <div class="d-flex align-items-center">
-                        <button id="darkModeToggle" class="btn btn-outline-primary ms-2">
+                        <button id="themeToggle" class="btn-icon">
                             <i class="fas fa-moon"></i>
                         </button>
                     </div>
@@ -817,7 +781,10 @@ foreach ($expenses as &$expense) {
         </nav>
 
         <!-- Group Management Buttons -->
-        <div class="container-fluid mt-4">
+        <div class="content-container">
+            <a href="dashboard.php" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0"><?php echo htmlspecialchars($group['name']); ?></h5>

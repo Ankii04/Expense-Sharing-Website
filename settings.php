@@ -60,6 +60,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success_message = "Notification preferences updated successfully!";
         }
 
+        // Update Avatar
+        if (isset($_POST['update_avatar'])) {
+            $avatar_url = $_POST['avatar_url'];
+            $stmt = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
+            $stmt->execute([$avatar_url, $user_id]);
+            $_SESSION['avatar_url'] = $avatar_url;
+            $success_message = "Avatar updated successfully!";
+        }
+
         $pdo->commit();
     } catch (PDOException $e) {
         $pdo->rollBack();
@@ -87,18 +96,44 @@ $user = $stmt->fetch();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="assets/css/styles.css" rel="stylesheet">
 </head>
-<body>
-    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
+<body class="dashboard-body">
+    <!-- Sidebar -->
+    <?php include 'sidebar.php'; ?>
+    
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle btn-icon">
+                            <i class="fas fa-bars fa-lg"></i>
+                        </button>
+                        <h4 class="mb-0 fw-bold text-primary d-none d-sm-block">
+                             Settings
+                        </h4>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button id="themeToggle" class="btn-icon">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h2 class="card-title mb-4">
-                            <i class="fas fa-cog me-2"></i>
-                            Settings
-                        </h2>
+        <div class="content-container">
+            <a href="dashboard.php" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card shadow">
+                        <div class="card-body">
+                            <h2 class="card-title mb-4">
+                                <i class="fas fa-cog me-2 text-primary"></i>
+                                Account Settings
+                            </h2>
 
                         <?php if ($success_message): ?>
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -161,6 +196,38 @@ $user = $stmt->fetch();
                             </div>
                         </div>
 
+                        <!-- Avatar Settings -->
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4 class="card-title">Avatar Settings</h4>
+                                <p class="text-muted small">Choose an avatar to represent you in groups and activity logs.</p>
+                                <form method="POST" class="mt-4">
+                                    <div class="d-flex flex-wrap gap-4 mb-4 avatar-selection">
+                                        <?php 
+                                        $avatars = [
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Amaya',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=James',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Willow',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Luna',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Milo',
+                                            'https://api.dicebear.com/7.x/avataaars/svg?seed=Zoe'
+                                        ];
+                                        foreach ($avatars as $url): ?>
+                                            <label class="avatar-option">
+                                                <input type="radio" name="avatar_url" value="<?php echo $url; ?>" <?php echo (($user['avatar_url'] ?? '') === $url) ? 'checked' : ''; ?> class="d-none">
+                                                <div class="avatar-wrapper p-1 rounded-circle border-2 <?php echo (($user['avatar_url'] ?? '') === $url) ? 'border-primary' : 'border-transparent'; ?>">
+                                                    <img src="<?php echo $url; ?>" alt="Avatar" class="rounded-circle shadow-sm" width="70" height="70">
+                                                </div>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <button type="submit" name="update_avatar" class="btn btn-primary">Save Selected Avatar</button>
+                                </form>
+                            </div>
+                        </div>
+
                         <!-- Change Password -->
                         <div class="card mb-4">
                             <div class="card-body">
@@ -193,6 +260,8 @@ $user = $stmt->fetch();
         </div>
     </div>
 
+    </div><!-- .content-container -->
+    </div><!-- .main-content -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

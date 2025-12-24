@@ -85,23 +85,46 @@ $group_expenses = $stmt->fetchAll();
     <link href="assets/css/styles.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
+<body class="dashboard-body">
+    <!-- Sidebar -->
+    <?php include 'sidebar.php'; ?>
     
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card shadow mb-4">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2 class="card-title mb-0">
-                                <i class="fas fa-chart-bar me-2"></i>
-                                Expense Reports
-                            </h2>
-                            <a href="dashboard.php" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                            </a>
-                        </div>
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle btn-icon">
+                            <i class="fas fa-bars fa-lg"></i>
+                        </button>
+                        <h4 class="mb-0 fw-bold text-primary d-none d-sm-block">
+                             Expense Reports
+                        </h4>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button id="themeToggle" class="btn-icon">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="content-container">
+            <a href="dashboard.php" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="card-title mb-0">
+                                    <i class="fas fa-chart-bar me-2 text-primary"></i>
+                                    Reports Overview
+                                </h2>
+                            </div>
 
                         <!-- Monthly Trend -->
                         <div class="row mb-4">
@@ -272,6 +295,8 @@ $group_expenses = $stmt->fetchAll();
         });
     </script>
 
+    </div><!-- .content-container -->
+    </div><!-- .main-content -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

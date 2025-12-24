@@ -60,13 +60,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     try {
+        require_once 'functions.php';
         $pdo->beginTransaction();
         
+        // Handle Receipt Upload (Item 3: Receipt scanning/attachment)
+        $receipt_path = null;
+        if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = 'uploads/receipts/';
+            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+            $file_ext = pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION);
+            $receipt_path = $upload_dir . uniqid('receipt_') . '.' . $file_ext;
+            move_uploaded_file($_FILES['receipt']['tmp_name'], $receipt_path);
+        }
+
         // Create expense
         $stmt = $pdo->prepare("INSERT INTO expenses (group_id, paid_by, amount, description, category, date, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
         $stmt->execute([$group_id, $_SESSION['user_id'], $amount, $description, $category, $date]);
         $expense_id = $pdo->lastInsertId();
         
+        // If receipt uploaded, record it
+        if ($receipt_path) {
+            $stmt = $pdo->prepare("INSERT INTO expense_attachments (expense_id, file_name, file_path, uploaded_by) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$expense_id, basename($receipt_path), $receipt_path, $_SESSION['user_id']]);
+        }
+
         // Calculate split amount
         $split_amount = $amount / count($split_with);
         
@@ -76,6 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$expense_id, $user_id, $split_amount]);
         }
         
+        // Item 1: Activity Log
+        logActivity($pdo, $group_id, $_SESSION['user_id'], 'add_expense', "Added an expense: ₹" . number_format($amount, 2) . " for '{$description}'");
+        
+        // Notifications: Notify group members
+        notifyGroup($pdo, $group_id, $_SESSION['user_id'], 'new_expense', "{$_SESSION['username']} added an expense of ₹" . number_format($amount, 2) . " to your group.");
+
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Expense added successfully']);
         exit();

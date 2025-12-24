@@ -25,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             error_log("User found with ID: " . $user['id']);
             if (password_verify($password, $user['password'])) {
                 $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['email'];
-                $_SESSION['name'] = $user['name'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['name'] = $user['name'] ?? $user['username'];
                 $_SESSION['email'] = $user['email'];
-                $_SESSION['avatar'] = $user['avatar'] ?? null;
+                $_SESSION['avatar_url'] = $user['avatar_url'] ?? null;
                 
                 header("Location: dashboard.php");
                 exit();

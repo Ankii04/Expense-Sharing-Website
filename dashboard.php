@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config.php';
+require_once 'functions.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
@@ -19,8 +20,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_group'])) {
             $group_id = $pdo->lastInsertId();
             
             // Add creator as a member
-            $stmt = $pdo->prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'admin')");
             $stmt->execute([$group_id, $_SESSION['user_id']]);
+            
+            logActivity($pdo, $group_id, $_SESSION['user_id'], 'create_group', "Created the group '{$group_name}'");
             
             $_SESSION['success'] = "Group created successfully!";
             header("Location: dashboard.php");
@@ -31,46 +34,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_group'])) {
     }
 }
 
-// Handle expense creation
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_expense'])) {
-    $group_id = $_POST['group_id'];
-    $amount = $_POST['amount'];
-    $description = trim($_POST['description']);
-    $date = $_POST['date'];
-    
-    if (!empty($amount) && !empty($date)) {
-        try {
-            $pdo->beginTransaction();
-            
-            // Create expense
-            $stmt = $pdo->prepare("INSERT INTO expenses (group_id, paid_by, amount, description, date) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$group_id, $_SESSION['user_id'], $amount, $description, $date]);
-            $expense_id = $pdo->lastInsertId();
-            
-            // Get group members
-            $stmt = $pdo->prepare("SELECT user_id FROM group_members WHERE group_id = ?");
-            $stmt->execute([$group_id]);
-            $members = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            
-            // Calculate split amount
-            $split_amount = $amount / count($members);
-            
-            // Create splits
-            $stmt = $pdo->prepare("INSERT INTO expense_splits (expense_id, user_id, amount) VALUES (?, ?, ?)");
-            foreach ($members as $member_id) {
-                $stmt->execute([$expense_id, $member_id, $split_amount]);
-            }
-            
-            $pdo->commit();
-            $_SESSION['success'] = "Expense added successfully!";
-            header("Location: dashboard.php");
-            exit();
-        } catch (PDOException $e) {
-            $pdo->rollBack();
-            $error = "Error creating expense: " . $e->getMessage();
-        }
-    }
-}
+// Fetch unread notifications
+$notifications = getUnreadNotifications($pdo, $_SESSION['user_id']);
+
+// Fetch recent activity from user's groups
+$stmt = $pdo->prepare("
+    SELECT al.*, u.name as user_name, g.name as group_name, u.avatar_url, u.username
+    FROM activity_log al
+    JOIN users u ON al.user_id = u.id
+    JOIN `groups` g ON al.group_id = g.id
+    WHERE al.group_id IN (SELECT group_id FROM group_members WHERE user_id = ?)
+    ORDER BY al.created_at DESC
+    LIMIT 10
+");
+$stmt->execute([$_SESSION['user_id']]);
+$activities = $stmt->fetchAll();
 
 // Get user's groups
 $stmt = $pdo->prepare("
@@ -105,31 +83,14 @@ $stmt = $pdo->prepare("
     LIMIT 12
 ");
 $stmt->execute([$_SESSION['user_id'], $_SESSION['user_id'], $_SESSION['user_id']]);
-$monthly_expenses = $stmt->fetchAll();
-
-// Get category distribution
-$stmt = $pdo->prepare("
-    SELECT 
-        COALESCE(e.category, 'Other') as category,
-        SUM(CASE WHEN es.user_id = ? THEN es.amount ELSE 0 END) as amount
-    FROM expenses e 
-    JOIN expense_splits es ON e.id = es.expense_id
-    WHERE e.group_id IN (
-        SELECT group_id 
-        FROM group_members 
-        WHERE user_id = ?
-    )
-    GROUP BY e.category
-");
-$stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
-$category_expenses = $stmt->fetchAll();
+$monthly_stats = $stmt->fetchAll();
 
 // Get recent expenses
 $stmt = $pdo->prepare("
-    SELECT e.*, g.name as group_name, u.name as paid_by_name 
-    FROM expenses e 
-    JOIN `groups` g ON e.group_id = g.id 
-    JOIN users u ON e.paid_by = u.id 
+    SELECT e.*, g.name as group_name, u.name as paid_by_name
+    FROM expenses e
+    JOIN `groups` g ON e.group_id = g.id
+    JOIN users u ON e.paid_by = u.id
     WHERE e.group_id IN (
         SELECT group_id 
         FROM group_members 
@@ -141,33 +102,24 @@ $stmt = $pdo->prepare("
 $stmt->execute([$_SESSION['user_id']]);
 $expenses = $stmt->fetchAll();
 
-// Calculate total expenses
-$total_expenses = 0;
-foreach ($expenses as $expense) {
-    $total_expenses += $expense['amount'];
-}
-
-// Get pending amounts (simplified version)
+// Get pending amounts
 $stmt = $pdo->prepare("
-    SELECT SUM(es.amount) as total_owed
-    FROM expense_splits es
-    JOIN expenses e ON es.expense_id = e.id
-    WHERE es.user_id = ? AND e.paid_by != ?
+    SELECT SUM(amount) as total_owed
+    FROM expense_splits
+    WHERE user_id = ? AND status = 'pending'
 ");
-$stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
-$owed = $stmt->fetch();
+$stmt->execute([$_SESSION['user_id']]);
+$total_owed = $stmt->fetchColumn() ?: 0;
 
 $stmt = $pdo->prepare("
     SELECT SUM(es.amount) as total_owes
     FROM expense_splits es
     JOIN expenses e ON es.expense_id = e.id
-    WHERE es.user_id != ? AND e.paid_by = ?
+    WHERE e.paid_by = ? AND es.user_id != ? AND es.status = 'pending'
 ");
 $stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
-$owes = $stmt->fetch();
+$total_owes = $stmt->fetchColumn() ?: 0;
 
-$total_owed = $owed['total_owed'] ?? 0;
-$total_owes = $owes['total_owes'] ?? 0;
 $balance = $total_owes - $total_owed;
 ?>
 <!DOCTYPE html>
@@ -179,102 +131,71 @@ $balance = $total_owes - $total_owed;
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
-    <!-- Add Chart.js for statistics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-body">
     <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <a href="dashboard.php" class="sidebar-brand">
-                <i class="fas fa-wallet"></i> Expense Maker
-            </a>
-        </div>
-        <ul class="sidebar-nav">
-            <li class="sidebar-item active">
-                <a href="dashboard.php" class="sidebar-link">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#createGroupModal">
-                    <i class="fas fa-users"></i> Create Group
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <?php
-                // Get first group ID for My Groups link
-                $firstGroup = !empty($groups) ? $groups[0]['id'] : '';
-                ?>
-                <a href="<?php echo !empty($firstGroup) ? "group-details.php?id=" . $firstGroup : "#"; ?>" class="sidebar-link">
-                    <i class="fas fa-layer-group"></i> My Groups
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                    <i class="fas fa-plus-circle"></i> Add Expense
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="reports.php" class="sidebar-link">
-                    <i class="fas fa-chart-pie"></i> Reports
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="settings.php" class="sidebar-link">
-                    <i class="fas fa-cog"></i> Settings
-                </a>
-            </li>
-        </ul>
-        <div style="flex: 1;"></div>
-        <div class="sidebar-bottom">
-            <button class="btn btn-primary w-100 mb-4" data-bs-toggle="modal" data-bs-target="#joinGroupModal">
-                <i class="fas fa-user-plus"></i> Join Group
-            </button>
-            <div class="user-info">
-                <div class="user-avatar">
-                    <?php 
-                        $display_name = $_SESSION['name'] ?? $_SESSION['username'] ?? 'U';
-                        echo htmlspecialchars(strtoupper(substr($display_name, 0, 1))); 
-                    ?>
-                </div>
-                <div class="user-details">
-                    <div class="user-name">
-                        <?php echo htmlspecialchars($_SESSION['name'] ?? $_SESSION['username'] ?? 'User'); ?>
-                    </div>
-                    <a href="logout.php" class="logout-link">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php include 'sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
-        <!-- Top Header Bar -->
-        <div class="top-nav bg-white border-bottom">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
             <div class="container-fluid">
-                <div class="d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-3">
-                        <button class="sidebar-toggle btn btn-link text-dark p-0">
+                        <button class="sidebar-toggle btn-icon">
                             <i class="fas fa-bars fa-lg"></i>
                         </button>
-                        <h4 class="mb-0 fw-bold text-primary">
-                            <i class="fas fa-receipt me-2"></i>Expense Sharing
+                        <h4 class="mb-0 fw-bold text-primary d-none d-sm-block">
+                             Expense Sharing
                         </h4>
                     </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <button class="btn btn-sm btn-outline-primary" id="themeToggle">
+                    <div class="d-flex align-items-center gap-2">
+                        <!-- Notifications Dropdown -->
+                        <div class="dropdown">
+                            <button class="btn-icon position-relative" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-bell"></i>
+                                <?php if (count($notifications) > 0): ?>
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.6rem;">
+                                        <?php echo count($notifications); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end shadow border-0" style="width: 300px; max-height: 400px; overflow-y: auto;">
+                                <div class="dropdown-header d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold">Notifications</span>
+                                    <?php if (count($notifications) > 0): ?>
+                                        <a href="mark-read.php" class="text-primary text-decoration-none small">Mark all as read</a>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if (empty($notifications)): ?>
+                                    <div class="text-center py-4">
+                                        <i class="fas fa-bell-slash text-muted mb-2 d-block fa-2xl"></i>
+                                        <span class="text-muted small">No new notifications</span>
+                                    </div>
+                                <?php else: ?>
+                                    <?php foreach ($notifications as $notif): ?>
+                                        <div class="dropdown-item py-2 px-3 border-bottom">
+                                            <p class="mb-1 small"><?php echo htmlspecialchars($notif['message']); ?></p>
+                                            <span class="text-muted" style="font-size: 0.7rem;">
+                                                <?php echo date('M d, H:i', strtotime($notif['created_at'])); ?>
+                                            </span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <button id="themeToggle" class="btn-icon">
                             <i class="fas fa-moon"></i>
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
+        </nav>
 
         <!-- Dashboard Content -->
-        <div class="container-fluid py-4">
+        <div class="content-container">
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="alert alert-success alert-dismissible fade show">
                     <?php 
@@ -300,342 +221,253 @@ $balance = $total_owes - $total_owed;
 
             <!-- Stats Cards -->
             <div class="row g-4 mb-4">
-                <div class="col-md-3">
-                    <div class="card stat-card">
+                <div class="col-md-4">
+                    <div class="card bg-primary text-white shadow-sm border-0">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h6 class="stat-title">Total Expenses</h6>
-                                    <h3 class="stat-value">₹<?php echo number_format($total_expenses, 2); ?></h3>
+                                    <h6 class="text-white-50">Total Balance</h6>
+                                    <h2 class="mb-0">₹<?php echo number_format($balance, 2); ?></h2>
                                 </div>
-                                <div class="stat-icon bg-primary">
-                                    <i class="fas fa-money-bill-wave"></i>
-                                </div>
+                                <i class="fas fa-wallet fa-2xl text-white-50"></i>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="stat-title">You Are Owed</h6>
-                                    <h3 class="stat-value">₹<?php echo number_format($total_owes, 2); ?></h3>
-                                </div>
-                                <div class="stat-icon bg-success">
-                                    <i class="fas fa-arrow-up"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="stat-title">You Owe</h6>
-                                    <h3 class="stat-value">₹<?php echo number_format($total_owed, 2); ?></h3>
-                                </div>
-                                <div class="stat-icon bg-danger">
-                                    <i class="fas fa-arrow-down"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card stat-card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="stat-title">Balance</h6>
-                                    <h3 class="stat-value <?php echo $balance >= 0 ? 'text-success' : 'text-danger'; ?>">
-                                        ₹<?php echo number_format(abs($balance), 2); ?>
-                                        <?php echo $balance >= 0 ? '↑' : '↓'; ?>
-                                    </h3>
-                                </div>
-                                <div class="stat-icon <?php echo $balance >= 0 ? 'bg-success' : 'bg-danger'; ?>">
-                                    <i class="fas fa-balance-scale"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="row g-4 mb-4">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0">Expense Overview</h5>
-                            <div class="dropdown">
-                                <button class="btn btn-sm dropdown-toggle" type="button" id="chartDropdown" data-bs-toggle="dropdown">
-                                    This Month
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#">This Week</a></li>
-                                    <li><a class="dropdown-item" href="#">This Month</a></li>
-                                    <li><a class="dropdown-item" href="#">Last 3 Months</a></li>
-                                    <li><a class="dropdown-item" href="#">This Year</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="expenseChart" height="300"></canvas>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Expense Distribution</h5>
-                        </div>
+                    <div class="card bg-success text-white shadow-sm border-0">
                         <div class="card-body">
-                            <canvas id="distributionChart" height="300"></canvas>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">You are owed</h6>
+                                    <h2 class="mb-0">₹<?php echo number_format($total_owes, 2); ?></h2>
+                                </div>
+                                <i class="fas fa-arrow-down fa-2xl text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-danger text-white shadow-sm border-0">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">You owe</h6>
+                                    <h2 class="mb-0">₹<?php echo number_format($total_owed, 2); ?></h2>
+                                </div>
+                                <i class="fas fa-arrow-up fa-2xl text-white-50"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Your Groups Section -->
-            <div class="container-fluid mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2>Your Groups</h2>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createGroupModal">
-                        <i class="fas fa-plus"></i> New Group
-                    </button>
-                </div>
-
-                <div class="row">
-                    <?php if (empty($groups)): ?>
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> You haven't joined any groups yet. Create a new group or join an existing one!
-                            </div>
+            <div class="row g-4">
+                <!-- Activity Stream (Item 1) -->
+                <div class="col-lg-8">
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-stream me-2 text-primary"></i>Recent Activity</h5>
                         </div>
-                    <?php else: ?>
-                        <?php foreach ($groups as $group): ?>
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <a href="group-details.php?id=<?php echo $group['id']; ?>" class="text-decoration-none">
-                                    <div class="card h-100 group-card">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="group-avatar">
-                                                    <?php echo strtoupper(substr($group['name'], 0, 1)); ?>
+                        <div class="card-body p-0">
+                            <?php if (empty($activities)): ?>
+                                <div class="text-center py-5">
+                                    <i class="fas fa-history text-muted mb-3 d-block fa-3xl"></i>
+                                    <p class="text-muted">No recent activity found.</p>
+                                </div>
+                            <?php else: ?>
+                                <div class="list-group list-group-flush">
+                                    <?php foreach ($activities as $act): ?>
+                                        <div class="list-group-item py-3">
+                                            <div class="d-flex gap-3">
+                                                <div class="avatar-sm">
+                                                    <?php if ($act['avatar_url']): ?>
+                                                        <img src="<?php echo htmlspecialchars($act['avatar_url']); ?>" class="rounded-circle" width="40" height="40">
+                                                    <?php else: ?>
+                                                        <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:40px;height:40px;">
+                                                            <?php echo strtoupper(substr($act['user_name'] ?: $act['username'], 0, 1)); ?>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </div>
-                                                <div class="ms-3">
-                                                    <h5 class="card-title mb-1"><?php echo htmlspecialchars($group['name']); ?></h5>
-                                                    <p class="card-text text-muted mb-0">
-                                                        Created by <?php echo htmlspecialchars($group['creator_name'] ?? ''); ?>
+                                                <div class="flex-grow-1">
+                                                    <p class="mb-1">
+                                                        <span class="fw-bold"><?php echo htmlspecialchars($act['user_name'] ?: $act['username']); ?></span>
+                                                        <?php echo htmlspecialchars($act['description']); ?>
+                                                        in <span class="text-primary">#<?php echo htmlspecialchars($act['group_name']); ?></span>
                                                     </p>
+                                                    <span class="text-muted small">
+                                                        <i class="far fa-clock me-1"></i><?php echo date('M d, H:i', strtotime($act['created_at'])); ?>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </a>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <!-- Recent Expenses Card -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Recent Expenses</h5>
-                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                            <i class="fas fa-plus"></i> Add Expense
-                        </button>
-                    </div>
-                    <div class="card-body p-0">
-                        <?php if (empty($expenses)): ?>
-                            <div class="p-4 text-center">
-                                <div class="empty-state">
-                                    <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-                                    <h5>No Expenses Yet</h5>
-                                    <p class="text-muted">Add your first expense to start tracking.</p>
-                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                                        Add Your First Expense
-                                    </button>
+                                    <?php endforeach; ?>
                                 </div>
-                            </div>
-                        <?php else: ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Expenses Table -->
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-receipt me-2 text-primary"></i>All Expenses</h5>
+                        </div>
+                        <div class="card-body p-0">
                             <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead>
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
                                         <tr>
-                                            <th>Date</th>
-                                            <th>Group</th>
+                                            <th class="ps-4">Date</th>
                                             <th>Description</th>
+                                            <th>Group</th>
                                             <th>Amount</th>
-                                            <th>Paid By</th>
+                                            <th class="pe-4">Paid By</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach (array_slice($expenses, 0, 5) as $expense): ?>
+                                        <?php foreach ($expenses as $expense): ?>
                                             <tr>
-                                                <td><?php echo date('M d, Y', strtotime($expense['date'])); ?></td>
-                                                <td><?php echo htmlspecialchars($expense['group_name']); ?></td>
-                                                <td><?php echo htmlspecialchars($expense['description'] ?? ''); ?></td>
-                                                <td>₹<?php echo number_format($expense['amount'], 2); ?></td>
-                                                <td><?php echo htmlspecialchars($expense['paid_by_name'] ?? ''); ?></td>
+                                                <td class="ps-4"><?php echo date('M d', strtotime($expense['date'])); ?></td>
+                                                <td><?php echo htmlspecialchars($expense['description']); ?></td>
+                                                <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($expense['group_name']); ?></span></td>
+                                                <td class="fw-bold">₹<?php echo number_format($expense['amount'], 2); ?></td>
+                                                <td class="pe-4"><?php echo htmlspecialchars($expense['paid_by_name']); ?></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
                                 </table>
                             </div>
-                            <?php if (count($expenses) > 5): ?>
-                                <div class="card-footer text-center">
-                                    <a href="#" class="btn btn-sm btn-link">View All Expenses</a>
-                                </div>
-                            <?php endif; ?>
-                        <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Groups Sidebar -->
+                <div class="col-lg-4">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold">My Groups</h5>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createGroupModal"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                <?php foreach ($groups as $group): ?>
+                                    <a href="group-details.php?id=<?php echo $group['id']; ?>" class="list-group-item list-group-item-action py-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1 fw-bold"><?php echo htmlspecialchars($group['name']); ?></h6>
+                                                <p class="mb-0 text-muted small">Created by <?php echo htmlspecialchars($group['creator_name']); ?></p>
+                                            </div>
+                                            <i class="fas fa-chevron-right text-muted small"></i>
+                                        </div>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Modals -->
     <!-- Create Group Modal -->
-    <div class="modal fade" id="createGroupModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="createGroupModal" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create New Group</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-bottom-0 ps-4">
+                    <h5 class="modal-title fw-bold">Create New Group</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="">
-                    <div class="modal-body">
+                <form method="POST">
+                    <div class="modal-body px-4">
                         <div class="mb-3">
-                            <label for="group_name" class="form-label">Group Name</label>
-                            <input type="text" class="form-control" id="group_name" name="group_name" placeholder="e.g., Trip to Paris, Roommates" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Group Type</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="group_type" id="typeEqual" value="equal" checked>
-                                    <label class="form-check-label" for="typeEqual">
-                                        Equal Split
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="group_type" id="typePercentage" value="percentage">
-                                    <label class="form-check-label" for="typePercentage">
-                                        Percentage Split
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="group_type" id="typeCustom" value="custom">
-                                    <label class="form-check-label" for="typeCustom">
-                                        Custom Split
-                                    </label>
-                                </div>
-                            </div>
+                            <label class="form-label fw-bold">Group Name</label>
+                            <input type="text" class="form-control form-control-lg" name="group_name" placeholder="e.g. Goa Trip 2024" required>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" name="create_group" class="btn btn-primary">Create Group</button>
+                    <div class="modal-footer border-top-0 px-4 pb-4">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="create_group" class="btn btn-primary px-4">Create Group</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Join Group Modal -->
-    <div class="modal fade" id="joinGroupModal" tabindex="-1" aria-hidden="true">
+    <!-- Add Expense Modal (Updated with Item 3: Receipt Scanning) -->
+    <div class="modal fade" id="addExpenseModal" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Join a Group</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-bottom-0 ps-4">
+                    <h5 class="modal-title fw-bold">Add Expense</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="joinGroupForm" action="join-group.php" method="GET">
-                        <div class="mb-3">
-                            <label for="inviteCode" class="form-label">Invitation Code</label>
-                            <input type="text" class="form-control" id="inviteCode" name="token" required>
-                            <div class="form-text">Enter the invitation code you received</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Join Group</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Expense Modal -->
-    <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Expense</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="addExpenseForm" action="add-expense.php" method="POST">
+                <form id="addExpenseForm" action="add-expense.php" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    <div class="modal-body">
+                    <div class="modal-body px-4">
                         <div class="mb-3">
-                            <label for="group_id" class="form-label">Group</label>
-                            <select class="form-select" id="group_id" name="group_id" required onchange="updateMembersList(this.value)">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Group</label>
+                            <select class="form-select" name="group_id" required onchange="updateMembersList(this.value)">
+                                <option value="" disabled selected>Select a group</option>
                                 <?php foreach ($groups as $group): ?>
                                     <option value="<?php echo $group['id']; ?>"><?php echo htmlspecialchars($group['name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label for="expense_type" class="form-label">Expense Type</label>
-                            <select class="form-select" id="expense_type" name="expense_type" required>
-                                <option value="food">Food</option>
-                                <option value="clothes">Clothes</option>
-                                <option value="travel">Travel</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="amount" class="form-label">Amount</label>
-                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <input type="text" class="form-control" id="description" name="description" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="date" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="date" name="date" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Split Between</label>
-                            <div id="splitWithContainer" class="d-flex flex-wrap gap-3">
-                                <!-- Member checkboxes will be loaded here by JS -->
+                        <div class="row g-3">
+                            <div class="col-8">
+                                <label class="form-label fw-bold small text-uppercase text-muted">Description</label>
+                                <input type="text" class="form-control" name="description" placeholder="Lunch, Taxi, Movie..." required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label fw-bold small text-uppercase text-muted">Amount</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" class="form-control" name="amount" step="0.01" required>
+                                </div>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Split Type</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="split_type" id="splitEqual" value="equal" checked>
-                                    <label class="form-check-label" for="splitEqual">
-                                        Equal Split
-                                    </label>
+                        <div class="mt-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Date & Category</label>
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <input type="date" class="form-control" name="date" value="<?php echo date('Y-m-d'); ?>">
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="split_type" id="splitCustom" value="custom">
-                                    <label class="form-check-label" for="splitCustom">
-                                        Custom Split
-                                    </label>
+                                <div class="col-6">
+                                    <select class="form-select" name="expense_type">
+                                        <option value="food">Food</option>
+                                        <option value="travel">Travel</option>
+                                        <option value="shopping">Shopping</option>
+                                        <option value="other" selected>Other</option>
+                                    </select>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Item 3: Receipt Scanning Option -->
+                        <div class="mt-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Receipt Scanner / Attachment</label>
+                            <div class="input-group">
+                                <input type="file" class="form-control" name="receipt" id="receiptInput" accept="image/*">
+                                <button class="btn btn-outline-primary" type="button" id="scanBtn">
+                                    <i class="fas fa-qrcode mr-2"></i> Scan
+                                </button>
+                            </div>
+                            <div id="scanResult" class="small mt-1 d-none text-success">
+                                <i class="fas fa-check-circle"></i> Amount extracted from receipt!
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Split With</label>
+                            <div id="splitWithContainer" class="d-flex flex-wrap gap-2">
+                                <p class="text-muted small">Select a group first</p>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" name="create_expense" class="btn btn-primary">Add Expense</button>
+                    <div class="modal-footer border-top-0 px-4 pb-4">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="addExpenseBtn" class="btn btn-primary px-4">Add Expense</button>
                     </div>
                 </form>
             </div>
@@ -644,266 +476,74 @@ $balance = $total_owes - $total_owed;
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Handle Join Group Form
-            const joinGroupForm = document.getElementById('joinGroupForm');
-            if (joinGroupForm) {
-                joinGroupForm.addEventListener('submit', function(e) {
-                    const inviteCode = document.getElementById('inviteCode').value.trim();
-                    if (!inviteCode) {
-                        e.preventDefault();
-                        alert('Please enter an invitation code');
-                        return;
-                    }
-                });
-            }
-
-            // Show success message if present
-            const urlParams = new URLSearchParams(window.location.search);
-            const success = urlParams.get('success');
-            if (success) {
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                alertDiv.innerHTML = `
-                    ${success}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                `;
-                document.querySelector('.container').prepend(alertDiv);
-                
-                // Remove success parameter from URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-
-            // Toggle sidebar
-            document.querySelector('.sidebar-toggle').addEventListener('click', function() {
-                document.body.classList.toggle('sidebar-collapsed');
-            });
-
-            // Expense Chart
-            const expenseCtx = document.getElementById('expenseChart').getContext('2d');
-            let expenseChart;
-            function renderExpenseChart(data, labels) {
-                if (expenseChart) expenseChart.destroy();
-                expenseChart = new Chart(expenseCtx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Your Share',
-                                data: data.map(item => item.amount_spent),
-                                backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                                borderColor: 'rgba(79, 70, 229, 1)',
-                                borderWidth: 2,
-                                tension: 0.4,
-                                fill: true
-                            },
-                            {
-                                label: 'Total Paid',
-                                data: data.map(item => item.amount_paid),
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                borderColor: 'rgba(16, 185, 129, 1)',
-                                borderWidth: 2,
-                                tension: 0.4,
-                                fill: true
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: 'rgba(0, 0, 0, 0.05)'
-                                }
-                            },
-                            x: {
-                                grid: {
-                                    display: false
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Initial chart render
-            const initialData = <?php echo json_encode(array_reverse($monthly_expenses)); ?>;
-            renderExpenseChart(initialData, initialData.map(item => {
-                const date = new Date(item.month + '-01');
-                return date.toLocaleString('default', { month: 'short' });
-            }));
-
-            // Chart filter logic
-            document.querySelectorAll('.dropdown-menu .dropdown-item').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const filter = this.textContent.trim();
-                    document.getElementById('chartDropdown').textContent = filter;
-                    fetch('dashboard-data.php?filter=' + encodeURIComponent(filter))
-                        .then(res => res.json())
-                        .then(res => {
-                            renderExpenseChart(res.data, res.labels);
-                        });
-                });
-            });
-
-            // Distribution Chart
-            const distributionCtx = document.getElementById('distributionChart').getContext('2d');
-            // Get category distribution data from PHP
-            const expenseTypes = <?php 
-                $stmt = $pdo->prepare("SELECT category, SUM(amount) as total FROM expenses WHERE group_id IN (SELECT group_id FROM group_members WHERE user_id = ?) GROUP BY category");
-                $stmt->execute([$_SESSION['user_id']]);
-                echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-            ?>;
-
-            const distributionChart = new Chart(distributionCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: expenseTypes.map(item => item.category),
-                    datasets: [{
-                        data: expenseTypes.map(item => item.total),
-                        backgroundColor: [
-                            'rgba(79, 70, 229, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(245, 158, 11, 0.8)',
-                            'rgba(239, 68, 68, 0.8)',
-                            'rgba(107, 114, 128, 0.8)',
-                            'rgba(192, 132, 252, 0.8)',
-                            'rgba(251, 146, 60, 0.8)',
-                            'rgba(147, 197, 253, 0.8)'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 15
-                            }
-                        }
-                    },
-                    cutout: '70%'
-                }
-            });
-
-            // Preload group members for all groups
-            const groupMembers = <?php
-            $groupMembersMap = [];
-            foreach ($groups as $group) {
-                $stmt = $pdo->prepare("SELECT u.id, u.name FROM group_members gm JOIN users u ON gm.user_id = u.id WHERE gm.group_id = ?");
-                $stmt->execute([$group['id']]);
-                $groupMembersMap[$group['id']] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            }
-            echo json_encode($groupMembersMap);
-            ?>;
-
-            function updateMembersList(groupId) {
-                const container = document.getElementById('splitWithContainer');
-                container.innerHTML = '';
-                if (!groupMembers[groupId]) return;
-                groupMembers[groupId].forEach(member => {
-                    const div = document.createElement('div');
-                    div.className = 'form-check';
-                    const checkbox = document.createElement('input');
-                    checkbox.className = 'form-check-input';
-                    checkbox.type = 'checkbox';
-                    checkbox.name = 'split_with[]';
-                    checkbox.value = member.id;
-                    checkbox.id = 'member' + member.id;
-                    if (member.id == <?php echo json_encode($_SESSION['user_id']); ?>) {
-                        checkbox.checked = true;
-                    }
-                    const label = document.createElement('label');
-                    label.className = 'form-check-label';
-                    label.htmlFor = 'member' + member.id;
-                    label.textContent = member.name;
-                    div.appendChild(checkbox);
-                    div.appendChild(label);
-                    container.appendChild(div);
-                });
-            }
-            // Initialize members list for the first group on modal open
-            const groupSelect = document.getElementById('group_id');
-            groupSelect && updateMembersList(groupSelect.value);
-            groupSelect && groupSelect.addEventListener('change', function() {
-                updateMembersList(this.value);
-            });
-
-            // Add Expense Form AJAX
-            const addExpenseForm = document.getElementById('addExpenseForm');
-            if (addExpenseForm) {
-                addExpenseForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const formData = new FormData(this);
-                    fetch('add-expense.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            window.location.reload();
-                        } else {
-                            alert(data.message || 'Error adding expense');
-                        }
-                    })
-                    .catch(() => {
-                        alert('Error adding expense');
+        function updateMembersList(groupId) {
+            const container = document.getElementById('splitWithContainer');
+            container.innerHTML = '<div class="spinner-border spinner-border-sm text-primary"></div>';
+            
+            fetch(`get-group-members.php?group_id=${groupId}`)
+                .then(r => r.json())
+                .then(members => {
+                    container.innerHTML = '';
+                    members.forEach(m => {
+                        const div = document.createElement('div');
+                        div.className = 'form-check form-check-inline bg-light p-2 rounded border';
+                        div.innerHTML = `
+                            <input class="form-check-input ms-0" type="checkbox" name="split_with[]" value="${m.id}" id="m${m.id}" checked>
+                            <label class="form-check-label ms-1" for="m${m.id}">${m.name || m.username}</label>
+                        `;
+                        container.appendChild(div);
                     });
                 });
+        }
+
+        // Mock Receipt Scanning (Item 3)
+        document.getElementById('scanBtn').addEventListener('click', function() {
+            const input = document.getElementById('receiptInput');
+            if (!input.files || !input.files[0]) {
+                alert('Please upload an image first');
+                return;
             }
-            // Sidebar Toggle Logic
-            const sidebar = document.querySelector('.sidebar');
-            const sidebarToggle = document.querySelector('.sidebar-toggle');
-            const mainContent = document.querySelector('.main-content');
             
-            // Create overlay
-            const overlay = document.createElement('div');
-            overlay.className = 'sidebar-overlay';
-            document.body.appendChild(overlay);
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Scanning...';
+            this.disabled = true;
+            
+            // Mock OCR logic
+            setTimeout(() => {
+                const mockAmount = (Math.random() * 500 + 100).toFixed(2);
+                document.getElementsByName('amount')[0].value = mockAmount;
+                document.getElementById('scanResult').classList.remove('d-none');
+                this.innerHTML = '<i class="fas fa-qrcode mr-2"></i> Scan';
+                this.disabled = false;
+            }, 1500);
+        });
 
-            function toggleSidebar() {
-                sidebar.classList.toggle('active');
-                overlay.classList.toggle('active');
-            }
+        // Add Expense Form Handling
+        document.getElementById('addExpenseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('addExpenseBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
 
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleSidebar();
-                });
-            }
-
-            // Close sidebar when clicking overlay
-            overlay.addEventListener('click', function() {
-                sidebar.classList.remove('active');
-                overlay.classList.remove('active');
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             });
-
-            // Close sidebar when clicking a link (optional, good for mobile)
-            const sidebarLinks = document.querySelectorAll('.sidebar-link');
-            sidebarLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    if (window.innerWidth < 992) {
-                        sidebar.classList.remove('active');
-                        overlay.classList.remove('active');
-                    }
-                });
-            });
-
         });
     </script>
 </body>

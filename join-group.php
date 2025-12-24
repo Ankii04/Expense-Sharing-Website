@@ -141,6 +141,10 @@ if (!empty($token) || !empty($code)) {
             $stmt->execute([$invite['id']]);
             error_log('Updated invitation status');
 
+            require_once 'functions.php';
+            logActivity($pdo, $invite['group_id'], $_SESSION['user_id'], 'join_group', "Joined the group");
+            notifyGroup($pdo, $invite['group_id'], $_SESSION['user_id'], 'member_joined', "{$_SESSION['username']} has joined the group " . $invite['group_name']);
+
             $pdo->commit();
             error_log('Transaction committed successfully');
             
@@ -166,11 +170,35 @@ if (!empty($token) || !empty($code)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join Group - Expense Maker</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
 </head>
-<body>
-    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
+<body class="dashboard-body">
+    <!-- Sidebar -->
+    <?php include 'sidebar.php'; ?>
+    
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="sidebar-toggle btn-icon">
+                            <i class="fas fa-bars fa-lg"></i>
+                        </button>
+                        <h4 class="mb-0 fw-bold text-primary d-none d-sm-block">
+                             Join Group
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="content-container">
+            <a href="dashboard.php" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
     
     <div class="container mt-4">
         <div class="row justify-content-center">
@@ -206,10 +234,13 @@ if (!empty($token) || !empty($code)) {
         </div>
     </div>
 
+    </div><!-- .content-container -->
+    </div><!-- .main-content -->
+
     <?php if (isset($debug_info)): ?>
         <div class="alert alert-secondary mt-4"><strong>Debug: Join Attempt</strong><br><pre><?php echo htmlspecialchars(print_r($debug_info, true)); ?></pre></div>
     <?php endif; ?>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
