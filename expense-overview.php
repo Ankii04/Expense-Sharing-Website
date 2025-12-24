@@ -75,61 +75,44 @@ foreach ($distribution_data as $row) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense Overview - Expense Maker</title>
-    <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="dashboard-body">
-    <?php include 'navbar.php'; ?>
+<body>
+    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
 
-    <div class="content-wrapper">
-    <div class="container py-4">
+    <div class="container mt-4">
         <div class="row">
             <div class="col-md-12 mb-4">
-                <div class="card card-premium shadow">
+                <div class="card shadow">
                     <div class="card-body">
-                        <h4 class="card-title fw-bold">
-                            <i class="fas fa-calendar-alt text-primary me-2"></i>
-                            Monthly Expense Overview
-                        </h4>
-                        <div style="height: 300px; position: relative;">
-                            <canvas id="expenseChart"></canvas>
-                        </div>
+                        <h4 class="card-title">Monthly Expense Overview</h4>
+                        <canvas id="expenseChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card card-premium shadow h-100">
+            <div class="col-md-6">
+                <div class="card shadow">
                     <div class="card-body">
-                        <h4 class="card-title fw-bold">
-                            <i class="fas fa-tags text-success me-2"></i>
-                            Expense by Category
-                        </h4>
-                        <div style="height: 250px; position: relative;">
-                            <canvas id="categoryPieChart"></canvas>
-                        </div>
+                        <h4 class="card-title">Expense by Category</h4>
+                        <canvas id="categoryPieChart"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 mb-4">
-                <div class="card card-premium shadow h-100">
+            <div class="col-md-6">
+                <div class="card shadow">
                     <div class="card-body">
-                        <h4 class="card-title fw-bold">
-                            <i class="fas fa-chart-line text-info me-2"></i>
-                            Expense Distribution
-                        </h4>
-                        <div style="height: 250px; position: relative;">
-                            <canvas id="distributionChart"></canvas>
-                        </div>
+                        <h4 class="card-title">Expense Distribution</h4>
+                        <canvas id="distributionChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    </div><!-- .content-wrapper -->
 
     <script>
         // Monthly Expense Overview Chart
@@ -231,6 +214,6 @@ foreach ($distribution_data as $row) {
         });
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

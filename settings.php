@@ -83,20 +83,21 @@ $user = $stmt->fetch();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Expense Maker</title>
-    <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="assets/css/styles.css" rel="stylesheet">
 </head>
-<body class="dashboard-body">
-    <?php include 'navbar.php'; ?>
+<body>
+    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
 
-    <div class="content-wrapper">
-    <div class="container py-4">
+    <div class="container mt-4">
         <div class="row">
             <div class="col-md-12">
-                <div class="card card-premium shadow mb-4">
+                <div class="card shadow">
                     <div class="card-body">
-                        <h2 class="card-title fw-bold mb-4">
-                            <i class="fas fa-cog text-primary me-2"></i>
-                            Account Settings
+                        <h2 class="card-title mb-4">
+                            <i class="fas fa-cog me-2"></i>
+                            Settings
                         </h2>
 
                         <?php if ($success_message): ?>
@@ -192,7 +193,6 @@ $user = $stmt->fetch();
         </div>
     </div>
 
-    </div><!-- .content-wrapper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

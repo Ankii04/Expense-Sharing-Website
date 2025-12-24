@@ -166,43 +166,37 @@ if (!empty($token) || !empty($code)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join Group - Expense Maker</title>
-    <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="dashboard-body">
-    <?php include 'navbar.php'; ?>
+<body>
+    <?php // include 'navbar.php'; // File doesn't exist - using dashboard sidebar instead ?>
     
-    <div class="content-wrapper">
-    <div class="container py-5">
+    <div class="container mt-4">
         <div class="row justify-content-center">
             <div class="col-md-6">
-                <div class="card card-premium shadow">
-                    <div class="card-body text-center p-5">
+                <div class="card shadow">
+                    <div class="card-body text-center">
                         <?php if ($error): ?>
-                            <div class="alert alert-danger border-0 shadow-sm mb-4">
+                            <div class="alert alert-danger">
                                 <i class="fas fa-exclamation-circle me-2"></i>
                                 <?php echo htmlspecialchars($error); ?>
                             </div>
-                            <a href="dashboard.php" class="btn btn-premium btn-primary-premium justify-content-center">
+                            <a href="dashboard.php" class="btn btn-primary">
                                 <i class="fas fa-home me-2"></i>Go to Dashboard
                             </a>
                         <?php else: ?>
-                            <div class="mb-4">
-                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
-                                    <i class="fas fa-users-cog fa-2x"></i>
-                                </div>
-                                <h2 class="fw-bold">Join a Group</h2>
-                                <p class="text-muted">Enter your invitation code below to join your friends.</p>
-                            </div>
+                            <h2 class="mb-4">Join a Group</h2>
+                            <p class="text-muted mb-4">Enter your invitation code below:</p>
                             <form method="POST" class="mb-4">
-                                <div class="input-group mb-3 shadow-sm rounded-pill overflow-hidden border">
-                                    <input type="text" name="invite_code" class="form-control border-0 py-3 px-4" placeholder="Enter invitation code" required>
-                                    <button type="submit" class="btn btn-primary px-4 border-0">
-                                        Join
+                                <div class="input-group mb-3">
+                                    <input type="text" name="invite_code" class="form-control" placeholder="Enter invitation code" required>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Join Group
                                     </button>
                                 </div>
                             </form>
-                            <a href="dashboard.php" class="btn btn-link text-muted text-decoration-none">
+                            <a href="dashboard.php" class="btn btn-outline-secondary">
                                 <i class="fas fa-home me-2"></i>Back to Dashboard
                             </a>
                         <?php endif; ?>
@@ -210,18 +204,12 @@ if (!empty($token) || !empty($code)) {
                 </div>
             </div>
         </div>
-
-        <?php if (isset($debug_info)): ?>
-            <div class="card border-0 shadow-sm mt-5 bg-light">
-                <div class="card-body">
-                    <h6 class="fw-bold mb-3">Debug Information</h6>
-                    <pre class="small mb-0"><?php echo htmlspecialchars(print_r($debug_info, true)); ?></pre>
-                </div>
-            </div>
-        <?php endif; ?>
     </div>
-    </div><!-- .content-wrapper -->
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <?php if (isset($debug_info)): ?>
+        <div class="alert alert-secondary mt-4"><strong>Debug: Join Attempt</strong><br><pre><?php echo htmlspecialchars(print_r($debug_info, true)); ?></pre></div>
+    <?php endif; ?>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
