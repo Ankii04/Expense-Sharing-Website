@@ -1,12 +1,43 @@
-// Form validation
+// Theme Toggle Logic
+document.addEventListener('DOMContentLoaded', function() {
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlElement = document.documentElement;
+    
+    // Check for saved theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    htmlElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            htmlElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        });
+    }
+
+    function updateThemeIcon(theme) {
+        if (!themeToggle) return;
+        const icon = themeToggle.querySelector('i');
+        if (theme === 'dark') {
+            icon.classList.replace('fa-moon', 'fa-sun');
+        } else {
+            icon.classList.replace('fa-sun', 'fa-moon');
+        }
+    }
+});
+
+// Form validation and loading states
 document.addEventListener('DOMContentLoaded', function() {
     // Password confirmation validation
-    const passwordForm = document.querySelector('form');
-    if (passwordForm) {
-        passwordForm.addEventListener('submit', function(e) {
-            const password = document.getElementById('password');
-            const confirmPassword = document.getElementById('confirm_password');
-            const submitButton = this.querySelector('button[type="submit"]');
+    const passwordForms = document.querySelectorAll('form');
+    passwordForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const password = form.querySelector('input[name="new_password"]') || form.querySelector('input[name="password"]');
+            const confirmPassword = form.querySelector('input[name="confirm_password"]');
             
             if (password && confirmPassword && password.value !== confirmPassword.value) {
                 e.preventDefault();
@@ -14,13 +45,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Add loading state
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+            // Add loading state to the submit button
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn && form.checkValidity()) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
             }
         });
-    }
+    });
 
     // Amount validation
     const amountInput = document.getElementById('amount');
@@ -36,58 +69,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
-            alert.style.opacity = '0';
+            alert.classList.add('fade');
             setTimeout(() => {
                 alert.remove();
             }, 300);
         }, 5000);
     });
-
-    // Initialize tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
 });
-
-// Add smooth scrolling to all links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        document.querySelector(this.getAttribute('href')).scrollIntoView({
-            behavior: 'smooth'
-        });
-    });
-});
-
-// Add loading state to buttons
-document.querySelectorAll('button[type="submit"]').forEach(button => {
-    button.addEventListener('click', function() {
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
-    });
-});
-
-// Sidebar Toggle
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebarToggle = document.querySelector('.sidebar-toggle');
-    const sidebar = document.querySelector('.sidebar');
-    const mainContent = document.querySelector('.main-content');
-
-    if (sidebarToggle && sidebar) {
-        sidebarToggle.addEventListener('click', function() {
-            sidebar.classList.toggle('active');
-            mainContent.classList.toggle('sidebar-active');
-        });
-    }
-
-    // Close sidebar when clicking outside on mobile
-    document.addEventListener('click', function(event) {
-        if (window.innerWidth <= 768) {
-            if (!sidebar.contains(event.target) && !sidebarToggle.contains(event.target)) {
-                sidebar.classList.remove('active');
-                mainContent.classList.remove('sidebar-active');
-            }
-        }
-    });
-}); 

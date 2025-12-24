@@ -183,95 +183,11 @@ $balance = $total_owes - $total_owed;
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="dashboard-body">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <a href="dashboard.php" class="sidebar-brand">
-                <i class="fas fa-wallet"></i> Expense Maker
-            </a>
-        </div>
-        <ul class="sidebar-nav">
-            <li class="sidebar-item active">
-                <a href="dashboard.php" class="sidebar-link">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#createGroupModal">
-                    <i class="fas fa-users"></i> Create Group
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <?php
-                // Get first group ID for My Groups link
-                $firstGroup = !empty($groups) ? $groups[0]['id'] : '';
-                ?>
-                <a href="<?php echo !empty($firstGroup) ? "group-details.php?id=" . $firstGroup : "#"; ?>" class="sidebar-link">
-                    <i class="fas fa-layer-group"></i> My Groups
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                    <i class="fas fa-plus-circle"></i> Add Expense
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="reports.php" class="sidebar-link">
-                    <i class="fas fa-chart-pie"></i> Reports
-                </a>
-            </li>
-            <li class="sidebar-item">
-                <a href="settings.php" class="sidebar-link">
-                    <i class="fas fa-cog"></i> Settings
-                </a>
-            </li>
-        </ul>
-        <div style="flex: 1;"></div>
-        <div class="sidebar-bottom">
-            <button class="btn btn-primary w-100 mb-4" data-bs-toggle="modal" data-bs-target="#joinGroupModal">
-                <i class="fas fa-user-plus"></i> Join Group
-            </button>
-            <div class="user-info">
-                <div class="user-avatar">
-                    <?php 
-                        $display_name = $_SESSION['name'] ?? $_SESSION['username'] ?? 'U';
-                        echo htmlspecialchars(strtoupper(substr($display_name, 0, 1))); 
-                    ?>
-                </div>
-                <div class="user-details">
-                    <div class="user-name">
-                        <?php echo htmlspecialchars($_SESSION['name'] ?? $_SESSION['username'] ?? 'User'); ?>
-                    </div>
-                    <a href="logout.php" class="logout-link">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Navbar -->
+    <?php include 'navbar.php'; ?>
 
     <!-- Main Content -->
-    <div class="main-content">
-        <!-- Top Header Bar -->
-        <div class="top-nav bg-white border-bottom">
-            <div class="container-fluid">
-                <div class="d-flex justify-content-between align-items-center py-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <button class="sidebar-toggle btn btn-link text-dark p-0">
-                            <i class="fas fa-bars fa-lg"></i>
-                        </button>
-                        <h4 class="mb-0 fw-bold text-primary">
-                            <i class="fas fa-receipt me-2"></i>Expense Sharing
-                        </h4>
-                    </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <button class="btn btn-sm btn-outline-primary" id="themeToggle">
-                            <i class="fas fa-moon"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="content-wrapper">
 
         <!-- Dashboard Content -->
         <div class="container-fluid py-4">
